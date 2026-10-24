@@ -75,8 +75,9 @@ end
 ---@field append fun(buffer: table, source: any, event: string, message: string, ...): nil
 ---@field encode fun(buffer: table): string
 ---@field parseError fun(status: number, response: any, body: string): any|nil
+---@field checkOkResponse boolean?
 
-local KNOWN = { datadog = true, fivemanage = true, loki = true }
+local KNOWN = { datadog = true, fivemanage = true, loki = true, elastic = true }
 
 if not KNOWN[service] then return lib.logger end
 
@@ -100,8 +101,11 @@ function lib.logger(source, event, message, ...)
             local body = provider.encode(buffer)
             buffer = nil
 
-            PerformHttpRequest(provider.endpoint, function(status, _, _, response)
-                if status == provider.okStatus then return end
+            PerformHttpRequest(provider.endpoint, function(status, resBody, _, response)
+                if status == provider.okStatus then
+                    if not provider.checkOkResponse then return end
+                    response = resBody
+                end
 
                 local err = provider.parseError(status, response, body)
                 if err == nil then return end
